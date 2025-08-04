@@ -1,40 +1,51 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>会社リスト</title>
+  <meta charset="UTF-8">
+  <title>会社リスト管理</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 30px; background: #fff; }
-    h1 { color: #0057b7; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #e0efff; }
-    .history { font-size: 0.9em; color: gray; }
-    .btn { margin: 5px 0; }
+    body {
+      font-family: sans-serif;
+      padding: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    select, input[type="text"] {
+      padding: 5px;
+      margin: 5px 0;
+    }
+    .small-btn {
+      font-size: 12px;
+      padding: 2px 6px;
+    }
   </style>
 </head>
 <body>
   <h1>会社リスト</h1>
-  <input type="file" id="csvFile" accept=".csv" />
-  <button class="btn" onclick="exportCSV()">CSV出力</button>
-  <input type="text" id="searchInput" placeholder="検索…" oninput="filterCompanies()" />
+  <input type="file" id="csvFile" accept=".csv">
+  <input type="text" id="searchInput" placeholder="検索...">
+  <button onclick="downloadCSV()">CSV出力</button>
+
   <table id="companyTable">
     <thead>
       <tr>
-        <th>会社名</th>
-        <th>電話番号</th>
-        <th>住所</th>
-        <th>代表者名</th>
-        <th>備考</th>
-        <th>履歴</th>
-        <th>操作</th>
+        <th>会社名</th><th>電話番号</th><th>住所</th><th>代表者名</th><th>備考</th><th>履歴</th><th>ステータス</th><th>操作</th>
       </tr>
     </thead>
-    <tbody id="companyBody"></tbody>
+    <tbody></tbody>
   </table>
 
   <script>
-    let companyData = {};
+    let companyData = JSON.parse(localStorage.getItem("companyData") || '{}');
+    const statuses = ["アポ済", "受注", "訪問失注", "アポキャンセル", "見込み", "再コール", "追わない"];
 
     const headerMap = {
       name: ["会社名", "名称", "商号"],
@@ -59,91 +70,111 @@
     }
 
     function loadCSV(text) {
-  const rows = text.trim().split("\n").map(row => row.split(","));
-  const headers = rows.shift();
-  const indices = normalizeHeader(headers);
+      const rows = text.trim().split("\n").map(r => r.split(","));
+      const headers = rows.shift();
+      const indices = normalizeHeader(headers);
 
-  rows.forEach(cols => {
-    const row = [
-      cols[indices.name]?.trim() || "",
-      cols[indices.phone]?.trim() || "",
-      cols[indices.address]?.trim() || "",
-      cols[indices.ceo]?.trim() || "",
-      cols[indices.memo]?.trim() || ""
-    ];
-    const name = row[0];
-    companyData[name] = {
-      data: row,
-      history: companyData[name]?.history || []
-    };
-  });
+      rows.forEach(cols => {
+        const name = cols[indices.name]?.trim() || "不明な会社";
+        const id = name;
+        const rowData = [
+          name,
+          cols[indices.phone]?.trim() || "",
+          cols[indices.address]?.trim() || "",
+          cols[indices.ceo]?.trim() || "",
+          cols[indices.memo]?.trim() || ""
+        ];
 
-  renderTable();
-}
-    function renderTable() {
-      const tbody = document.getElementById("companyBody");
-      tbody.innerHTML = "";
-      Object.keys(companyData).forEach(name => {
-        const tr = document.createElement("tr");
-        const rowData = companyData[name].data;
-        for (let i = 0; i < 5; i++) {
-          const td = document.createElement("td");
-          td.textContent = rowData[i] || "";
-          tr.appendChild(td);
+        if (companyData[id]) {
+          companyData[id].history.push(`再登録: ${new Date().toLocaleString()}`);
+        } else {
+          companyData[id] = { row: rowData, history: [], status: "" };
         }
-        const tdHistory = document.createElement("td");
-        tdHistory.innerHTML = companyData[name].history.map(h => `<div class="history">${h}</div>`).join("");
-        tr.appendChild(tdHistory);
+      });
 
-        const tdOps = document.createElement("td");
-        const btn = document.createElement("button");
-        btn.textContent = "履歴追加";
-        btn.onclick = () => {
-          const content = prompt("履歴内容を入力");
-          if (content) {
-            const now = new Date().toLocaleString();
-            companyData[name].history.push(`${now}：${content}`);
-            renderTable();
-          }
+      localStorage.setItem("companyData", JSON.stringify(companyData));
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#companyTable tbody");
+      tbody.innerHTML = "";
+      const keyword = document.getElementById("searchInput").value.trim();
+
+      Object.entries(companyData).forEach(([id, data]) => {
+        if (!data.row.join().includes(keyword)) return;
+
+        const tr = document.createElement("tr");
+        data.row.forEach(cell => {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+
+        const historyTd = document.createElement("td");
+        historyTd.innerHTML = data.history.slice(-3).join("<br>");
+        tr.appendChild(historyTd);
+
+        const statusTd = document.createElement("td");
+        const select = document.createElement("select");
+        statuses.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s;
+          opt.textContent = s;
+          if (data.status === s) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.onchange = () => {
+          data.status = select.value;
+          localStorage.setItem("companyData", JSON.stringify(companyData));
         };
-        tdOps.appendChild(btn);
-        tr.appendChild(tdOps);
+        statusTd.appendChild(select);
+        tr.appendChild(statusTd);
+
+        const delTd = document.createElement("td");
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "削除";
+        delBtn.className = "small-btn";
+        delBtn.onclick = () => {
+          delete companyData[id];
+          localStorage.setItem("companyData", JSON.stringify(companyData));
+          renderTable();
+        };
+        delTd.appendChild(delBtn);
+        tr.appendChild(delTd);
 
         tbody.appendChild(tr);
       });
     }
 
-    function filterCompanies() {
-      const keyword = document.getElementById("searchInput").value.toLowerCase();
-      const rows = document.querySelectorAll("#companyBody tr");
-      rows.forEach(row => {
-        const cells = row.querySelectorAll("td");
-        let match = Array.from(cells).some(td => td.textContent.toLowerCase().includes(keyword));
-        row.style.display = match ? "" : "none";
+    function downloadCSV() {
+      let csv = "会社名,電話番号,住所,代表者名,備考,履歴,ステータス\n";
+      Object.values(companyData).forEach(d => {
+        const row = d.row.concat(
+          [`"${d.history.join(" / ")}"`, d.status]
+        );
+        csv += row.join(",") + "\n";
       });
-    }
 
-    function exportCSV() {
-      let csv = "会社名,電話番号,住所,代表者名,備考\n";
-      for (const name in companyData) {
-        csv += companyData[name].data.join(",") + "\n";
-      }
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "会社リスト.csv";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "会社リスト.csv";
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
-    document.getElementById("csvFile").addEventListener("change", (event) => {
-      const file = event.target.files[0];
+    document.getElementById("csvFile").addEventListener("change", function () {
+      const file = this.files[0];
       const reader = new FileReader();
       reader.onload = e => loadCSV(e.target.result);
       reader.readAsText(file);
     });
+
+    document.getElementById("searchInput").addEventListener("input", renderTable);
+
+    renderTable();
   </script>
 </body>
 </html>
