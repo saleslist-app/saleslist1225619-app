@@ -11,46 +11,62 @@
       h1 {
         color: #333;
       }
+      input[type="file"] {
+        margin-top: 20px;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
       }
       th, td {
-        padding: 10px;
         border: 1px solid #ccc;
+        padding: 8px;
         text-align: left;
       }
       th {
-        background-color: #f0f0f0;
+        background-color: #f5f5f5;
       }
     </style>
   </head>
   <body>
-    <h1>会社リスト（サンプル）</h1>
-    <table>
-      <thead>
-        <tr>
-          <th>会社名</th>
-          <th>電話番号</th>
-          <th>住所</th>
-          <th>代表者</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>株式会社テスト</td>
-          <td>06-1234-5678</td>
-          <td>大阪市中央区本町1-1-1</td>
-          <td>山田 太郎</td>
-        </tr>
-        <tr>
-          <td>合同会社デモ</td>
-          <td>03-9876-5432</td>
-          <td>東京都渋谷区渋谷2-2-2</td>
-          <td>佐藤 花子</td>
-        </tr>
-      </tbody>
-    </table>
+    <h1>会社リスト表示</h1>
+    <input type="file" id="csvFileInput" accept=".csv" />
+    <table id="companyTable"></table>
+
+    <script>
+      document.getElementById('csvFileInput').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const csvText = event.target.result;
+          const lines = csvText.split('\n').filter(line => line.trim() !== '');
+          const table = document.getElementById('companyTable');
+          table.innerHTML = '';
+
+          const headers = lines[0].split(',');
+          const headerRow = document.createElement('tr');
+          headers.forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header.trim();
+            headerRow.appendChild(th);
+          });
+          table.appendChild(headerRow);
+
+          lines.slice(1).forEach(line => {
+            const row = document.createElement('tr');
+            line.split(',').forEach(cell => {
+              const td = document.createElement('td');
+              td.textContent = cell.trim();
+              row.appendChild(td);
+            });
+            table.appendChild(row);
+          });
+        };
+        reader.readAsText(file);
+      });
+    </script>
   </body>
 </html>
