@@ -59,29 +59,27 @@
     }
 
     function loadCSV(text) {
-      const rows = text.trim().split("\n").map(row => row.split(","));
-      const headers = rows.shift();
-      const indices = normalizeHeader(headers);
+  const rows = text.trim().split("\n").map(row => row.split(","));
+  const headers = rows.shift();
+  const indices = normalizeHeader(headers);
 
-      rows.forEach(cols => {
-        const name = cols[indices.name]?.trim() || "不明な会社";
-        const rowData = [
-          name,
-          cols[indices.phone]?.trim() || "",
-          cols[indices.address]?.trim() || "",
-          cols[indices.ceo]?.trim() || "",
-          cols[indices.memo]?.trim() || ""
-        ];
-        if (!companyData[name]) {
-          companyData[name] = { data: rowData, history: [] };
-        } else {
-          companyData[name].data = rowData; // 上書きしても履歴は保持
-        }
-      });
+  rows.forEach(cols => {
+    const row = [
+      cols[indices.name]?.trim() || "",
+      cols[indices.phone]?.trim() || "",
+      cols[indices.address]?.trim() || "",
+      cols[indices.ceo]?.trim() || "",
+      cols[indices.memo]?.trim() || ""
+    ];
+    const name = row[0];
+    companyData[name] = {
+      data: row,
+      history: companyData[name]?.history || []
+    };
+  });
 
-      renderTable();
-    }
-
+  renderTable();
+}
     function renderTable() {
       const tbody = document.getElementById("companyBody");
       tbody.innerHTML = "";
