@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <title>会社リスト</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 30px; }
-    h1 { color: #333; }
+    body { font-family: Arial, sans-serif; padding: 30px; background: #fff; }
+    h1 { color: #0057b7; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f4f4f4; }
+    th { background-color: #e0efff; }
     .history { font-size: 0.9em; color: gray; }
     .btn { margin: 5px 0; }
   </style>
@@ -36,27 +36,49 @@
   <script>
     let companyData = {};
 
-    function filterCompanies() {
-      const keyword = document.getElementById("searchInput").value.toLowerCase();
-      const rows = document.querySelectorAll("#companyBody tr");
-      rows.forEach(row => {
-        const cells = row.querySelectorAll("td");
-        let match = Array.from(cells).some(td => td.textContent.toLowerCase().includes(keyword));
-        row.style.display = match ? "" : "none";
+    const headerMap = {
+      name: ["会社名", "名称", "商号"],
+      phone: ["電話", "TEL", "電話番号", "Phone"],
+      address: ["住所", "所在地"],
+      ceo: ["代表", "代表者", "社長", "代表取締役"],
+      memo: ["備考", "メモ", "コメント"]
+    };
+
+    function normalizeHeader(headers) {
+      let indices = { name: -1, phone: -1, address: -1, ceo: -1, memo: -1 };
+      headers.forEach((h, i) => {
+        const clean = h.trim();
+        for (const key in headerMap) {
+          if (headerMap[key].some(k => clean.includes(k))) {
+            indices[key] = i;
+            break;
+          }
+        }
       });
+      return indices;
     }
 
     function loadCSV(text) {
       const rows = text.trim().split("\n").map(row => row.split(","));
       const headers = rows.shift();
+      const indices = normalizeHeader(headers);
+
       rows.forEach(cols => {
-        const name = cols[0];
+        const name = cols[indices.name]?.trim() || "不明な会社";
+        const rowData = [
+          name,
+          cols[indices.phone]?.trim() || "",
+          cols[indices.address]?.trim() || "",
+          cols[indices.ceo]?.trim() || "",
+          cols[indices.memo]?.trim() || ""
+        ];
         if (!companyData[name]) {
-          companyData[name] = { data: cols, history: [] };
+          companyData[name] = { data: rowData, history: [] };
         } else {
-          companyData[name].data = cols; // 上書き
+          companyData[name].data = rowData; // 上書きしても履歴は保持
         }
       });
+
       renderTable();
     }
 
@@ -93,12 +115,15 @@
       });
     }
 
-    document.getElementById("csvFile").addEventListener("change", (event) => {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onload = e => loadCSV(e.target.result);
-      reader.readAsText(file);
-    });
+    function filterCompanies() {
+      const keyword = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll("#companyBody tr");
+      rows.forEach(row => {
+        const cells = row.querySelectorAll("td");
+        let match = Array.from(cells).some(td => td.textContent.toLowerCase().includes(keyword));
+        row.style.display = match ? "" : "none";
+      });
+    }
 
     function exportCSV() {
       let csv = "会社名,電話番号,住所,代表者名,備考\n";
@@ -114,6 +139,13 @@
       link.click();
       document.body.removeChild(link);
     }
+
+    document.getElementById("csvFile").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = e => loadCSV(e.target.result);
+      reader.readAsText(file);
+    });
   </script>
 </body>
 </html>
